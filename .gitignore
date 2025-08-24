@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# Data
+data/sprint_data.db
