@@ -1,16 +1,25 @@
 import requests
 from .base_agent import BaseAgent
-# Import the new services
 from ..Services.jira_service import JiraService
 from ..Services.llm_service import LLMService
 
 class DeveloperAssistantAgent(BaseAgent):
     def __init__(self, jira_domain, jira_email, api_token):
-        # Call the parent class's __init__
         super().__init__(jira_domain, jira_email, api_token)
-        # Initialize the services
         self.jira_service = JiraService(self.auth, self.headers, self.jira_domain)
         self.llm_service = LLMService()
+
+    def _get_text_from_comment_body(self, body):
+        """
+        Extracts plain text from Jira's Atlassian Document Format (ADF).
+        This is a simplified parser for basic text comments.
+        """
+        try:
+            # Navigate through the nested structure to find the text
+            return body['content'][0]['content'][0]['text']
+        except (KeyError, IndexError):
+            # Fallback for unexpected formats or empty comments
+            return ""
 
     def execute(self):
         """The main execution loop for this agent."""
@@ -36,15 +45,27 @@ class DeveloperAssistantAgent(BaseAgent):
                     print("  -> No comments found.")
                     continue
                 
-                # Get the latest comment
-                latest_comment = comments[-1]['body']
-                print(f"  -> Latest Comment: \"{latest_comment[:75]}...\"")
+                # Get the body of the latest comment
+                latest_comment_body = comments[-1]['body']
+                # *** FIX: Use the helper function to extract plain text ***
+                comment_text = self._get_text_from_comment_body(latest_comment_body)
+                
+                if not comment_text:
+                    print("  -> Latest comment has no text content.")
+                    continue
+
+                print(f"  -> Latest Comment: \"{comment_text[:75]}...\"")
 
                 # Reason about the comment using the LLM service
-                analysis = self.llm_service.analyze_comment(latest_comment)
+                analysis = self.llm_service.analyze_comment(comment_text)
                 print(f"  -> LLM Analysis: {analysis}")
 
         except requests.exceptions.HTTPError as err:
             print(f"HTTP Error: {err}")
         except Exception as e:
             print(f"An error occurred: {e}")
+
+    def publish_summary(self, broker):
+        """Publishes a summary of its findings to the message broker."""
+        summary_message = "Developer task perception complete. All assigned tickets have been analyzed."
+        broker.publish(self.__class__.__name__, summary_message)
