@@ -7,7 +7,7 @@ class LLMService:
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables.")
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
     def analyze_comment(self, comment_text):
         """Analyzes a developer's comment for sentiment and blockers."""
