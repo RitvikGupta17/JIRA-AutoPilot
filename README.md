@@ -78,4 +78,4 @@ This file serves as a template for the required environment variables. It's a be
 
 **Action:** Create a new file named `.env.example` in the root of your project.
 
-**File: `ritvikgupta17/jira-autopilot/.env.example`**
+**File: `jira-autopilot/.env.example`**
