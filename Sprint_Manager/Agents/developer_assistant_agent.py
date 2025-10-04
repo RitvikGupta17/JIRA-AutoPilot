@@ -1,3 +1,4 @@
+# Sprint_Manager/Agents/developer_assistant_agent.py
 import requests
 from .base_agent import BaseAgent
 from ..Services.jira_service import JiraService
@@ -8,64 +9,61 @@ class DeveloperAssistantAgent(BaseAgent):
         super().__init__(jira_domain, jira_email, api_token)
         self.jira_service = JiraService(self.auth, self.headers, self.jira_domain)
         self.llm_service = LLMService()
+        self.analyzed_issues_count = 0
 
     def _get_text_from_comment_body(self, body):
-        """
-        Extracts plain text from Jira's Atlassian Document Format (ADF).
-        This is a simplified parser for basic text comments.
-        """
-        try:
-            # Navigate through the nested structure to find the text
-            return body['content'][0]['content'][0]['text']
-        except (KeyError, IndexError):
-            # Fallback for unexpected formats or empty comments
-            return ""
+        full_text = []
+        if 'content' in body and isinstance(body['content'], list):
+            for block in body['content']:
+                if 'content' in block and isinstance(block['content'], list):
+                    for element in block['content']:
+                        if element.get('type') == 'text' and 'text' in element:
+                            full_text.append(element['text'])
+        return " ".join(full_text)
 
     def execute(self):
-        """The main execution loop for this agent."""
-        print("\n--- Developer Assistant Agent ---")
+        """Analyzes assigned tickets and returns a string report of the findings."""
+        print("\n--- 👨‍💻 Developer Assistant Agent ---")
         print("Perceiving assigned tasks...")
         
-        search_url = f"{self.jira_domain}/rest/api/3/search"
-        jql_query = 'assignee = currentUser() AND status != "Done"'
-        params = {'jql': jql_query}
+        report_lines = [] # <-- Start building the report
+        search_url = f"{self.jira_domain}/rest/api/3/search/jql"
+        data = { "jql": 'assignee = currentUser() AND status != "Done"', "fields": ["key", "summary"] }
 
         try:
-            response = requests.get(search_url, headers=self.headers, params=params, auth=self.auth)
+            response = requests.post(search_url, headers=self.headers, json=data, auth=self.auth)
             response.raise_for_status()
             issues = response.json().get('issues', [])
-            print(f"Found {len(issues)} assigned issues.")
+            self.analyzed_issues_count = len(issues)
+            print(f"Found {self.analyzed_issues_count} assigned issues.")
+            report_lines.append(f"Found {self.analyzed_issues_count} assigned issues:")
 
             for issue in issues:
-                issue_key = issue['key']
-                print(f"\nAnalyzing ticket: {issue_key} - {issue['fields']['summary']}")
-                
+                issue_key, summary = issue['key'], issue['fields']['summary']
+                print(f"\nAnalyzing ticket: {issue_key} - {summary}")
+
                 comments = self.jira_service.get_comments_for_issue(issue_key)
                 if not comments:
                     print("  -> No comments found.")
+                    report_lines.append(f"- {issue_key}: No comments found.")
                     continue
-                
-                # Get the body of the latest comment
-                latest_comment_body = comments[-1]['body']
-                # *** FIX: Use the helper function to extract plain text ***
-                comment_text = self._get_text_from_comment_body(latest_comment_body)
-                
-                if not comment_text:
+
+                comment_text = self._get_text_from_comment_body(comments[-1]['body'])
+                if not comment_text.strip():
                     print("  -> Latest comment has no text content.")
+                    report_lines.append(f"- {issue_key}: Latest comment has no text content.")
                     continue
-
-                print(f"  -> Latest Comment: \"{comment_text[:75]}...\"")
-
-                # Reason about the comment using the LLM service
+                
+                print(f"  -> Latest Comment: \"{comment_text}\"")
                 analysis = self.llm_service.analyze_comment(comment_text)
-                print(f"  -> LLM Analysis: {analysis}")
+                print(f"  -> 🤖 LLM Analysis: {analysis}")
+                report_lines.append(f"- **{issue_key}**: {summary}\n  - **LLM Analysis**: {analysis}")
 
         except requests.exceptions.HTTPError as err:
             print(f"HTTP Error: {err}")
+            report_lines.append(f"HTTP Error encountered: {err}")
         except Exception as e:
             print(f"An error occurred: {e}")
-
-    def publish_summary(self, broker):
-        """Publishes a summary of its findings to the message broker."""
-        summary_message = "Developer task perception complete. All assigned tickets have been analyzed."
-        broker.publish(self.__class__.__name__, summary_message)
+            report_lines.append(f"An unexpected error occurred: {e}")
+            
+        return "\n".join(report_lines) # <-- Return the final report string
