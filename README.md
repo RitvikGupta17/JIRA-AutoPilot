@@ -60,6 +60,9 @@ Follow these instructions to get a local copy up and running.
     API_TOKEN="your-jira-api-token"
     GEMINI_API_KEY="your-google-gemini-api-key"
     BOARD_ID="your-jira-board-id"
+    SENDER_EMAIL="your-email@gmail.com"
+    SENDER_PASSWORD="xxxx" # The 16-character password from Google
+    RECIPIENT_EMAIL="scrum-master-email@example.com"
     ```
     *To find your `BOARD_ID`, go to your Jira board. The URL will look something like `.../boards/35`. The number at the end is your Board ID.*
 
