@@ -71,7 +71,7 @@ Follow these instructions to get a local copy up and running.
 Execute the main script to start the agents:
 ```sh
 python main.py
-
+```
 
 #### **Step 1.2: Create a `.env.example` file**
 This file serves as a template for the required environment variables. It's a best practice that helps new users understand what credentials they need to provide.
