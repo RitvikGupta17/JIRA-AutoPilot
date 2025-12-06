@@ -1,81 +1,169 @@
-# JIRA AutoPilot ✈️
+# ✈️ JIRA AutoPilot
 
-JIRA AutoPilot is an autonomous, multi-agent system designed to streamline agile project management within Jira. It uses intelligent agents to monitor sprint health, analyze developer tasks, and manage the QA/release pipeline, automating routine check-ins and providing insightful analytics.
+> **Stop managing Jira. Let Jira manage itself.**
 
----
+**JIRA AutoPilot** is an industry-grade, multi-agent system that transforms your static Jira board into a living, breathing project team. It doesn't just *read* tickets—it **understands, assigns, monitors, and closes** them.
 
-## ✨ Features
+Powered by **Google Gemini 2.0 Flash** and a custom **Event-Driven Architecture**, this system acts as a Triage Specialist, a Scrum Master, a QA Engineer, and a Developer Guide—all running autonomously 24/7.
 
-* **Scrum Master Agent**: Monitors the overall health of the active sprint, tracking the status of all tickets.
-* **Developer Assistant Agent**: Scans tickets assigned to the current user, analyzes comments using a Large Language Model (LLM) to detect blockers or negative sentiment.
-* **QA & Release Agent**: Identifies tickets that are in the "In Review" status, preparing them for the next stage of the pipeline.
-* **Message Broker**: A central communication channel allowing agents to publish their findings and subscribe to messages from other agents.
-* **Knowledge Base**: A persistent database to store historical data about sprints, team velocity, and more.
+-----
 
----
+## 🧠 The Autonomous Agents
+
+The system is composed of four specialized agents that communicate via a central **Message Broker**.
+
+### 1\. 🚦 The Triage Agent (The Gatekeeper)
+
+  * **Role:** Autonomous Intake & Assignment.
+  * **Capabilities:**
+      * Scans the backlog for unassigned work.
+      * **LLM Analysis:** Reads the ticket to understand if it's a "Frontend Bug" or a "Backend Feature."
+      * **Smart Assignment:** Queries the Knowledge Base to find the best developer based on skill set (e.g., "React Expert") and current workload.
+      * **Action:** Auto-assigns the ticket and updates priority/labels in Jira.
+
+### 2\. 👨‍💻 The Developer Assistant (The Wingman)
+
+  * **Role:** Proactive Support & Code Monitoring.
+  * **Capabilities:**
+      * **Git Integration (Simulated):** Monitors active tickets (`In Progress`) for code commits.
+      * **Nudge Theory:** If a ticket is active for 48h with no code, it autonomously comments: *"No code activity detected. Are you stuck?"*
+      * **Blocker Detection:** Analyzes developer comments using NLP. If a dev says *"I'm stuck on the API,"* it flags the ticket as **BLOCKED** and alerts the Scrum Master.
+
+### 3\. 🕵️ The Scrum Master (The Strategist)
+
+  * **Role:** Risk Management & Escalation.
+  * **Capabilities:**
+      * **Velocity Prediction:** Compares current burn-down rate vs. historical team velocity to predict sprint failure risks.
+      * **Scope Creep Police:** Detects tickets added *after* the sprint started and flags them.
+      * **Workload Balancing:** Identifies overworked team members and suggests reassignments.
+      * **Escalation:** Receives "BLOCKER" signals from other agents and autonomously escalates high-priority issues.
+
+### 4\. 📦 The QA & Release Agent (The Closer)
+
+  * **Role:** Quality Control & Documentation.
+  * **Capabilities:**
+      * **Bottleneck Detection:** Warns if too many tickets are piling up in "In Review."
+      * **Auto-Documentation:** Reads all "Done" tickets and uses Generative AI to write a professional **`RELEASE_NOTES.md`** file, categorized by Features and Bug Fixes.
+
+-----
+
+## 🛠️ Technology Stack
+
+  * **Core:** Python 3.9+
+  * **Intelligence:** Google Gemini 2.0 Flash (via `google-generativeai`)
+  * **Integration:** Jira REST API v3
+  * **Database:** SQLite (Knowledge Base & Sprint History)
+  * **Communication:** In-Memory Message Broker (Publisher/Subscriber Pattern)
+  * **Reporting:** Markdown-to-HTML Email Engine
+
+-----
 
 ## 🚀 Getting Started
 
-Follow these instructions to get a local copy up and running.
-
 ### Prerequisites
 
-* Python 3.8+
-* A Jira Cloud instance with API access
-* A Google Gemini API Key
+1.  **Python 3.8+** installed.
+2.  A **Jira Cloud** account.
+3.  A **Google Gemini API Key** (Free tier works).
 
-### Installation & Setup
+### 1\. Installation
 
-1.  **Clone the repository:**
-    ```sh
-    git clone <your-repo-url>
-    cd jira-autopilot
-    ```
+```bash
+# Clone the repository
+git clone https://github.com/your-username/jira-autopilot.git
+cd jira-autopilot
 
-2.  **Create and activate a virtual environment:**
-    * On macOS/Linux:
-        ```sh
-        python3 -m venv venv
-        source venv/bin/activate
-        ```
-    * On Windows:
-        ```sh
-        python -m venv venv
-        .\venv\Scripts\activate
-        ```
-
-3.  **Install the required dependencies:**
-    ```sh
-    pip install -r requirements.txt
-    ```
-
-4.  **Configure your environment variables:**
-    * Create a file named `.env` in the root directory of the project.
-    * Copy the contents of `.env.example` into it and fill in your credentials.
-
-    **`.env` file contents:**
-    ```
-    JIRA_DOMAIN="[https://your-domain.atlassian.net](https://your-domain.atlassian.net)"
-    JIRA_EMAIL="your-jira-email@example.com"
-    API_TOKEN="your-jira-api-token"
-    GEMINI_API_KEY="your-google-gemini-api-key"
-    BOARD_ID="your-jira-board-id"
-    SENDER_EMAIL="your-email@gmail.com"
-    SENDER_PASSWORD="xxxx" # The 16-character password from Google
-    RECIPIENT_EMAIL="scrum-master-email@example.com"
-    ```
-    *To find your `BOARD_ID`, go to your Jira board. The URL will look something like `.../boards/35`. The number at the end is your Board ID.*
-
-### How to Run
-
-Execute the main script to start the agents:
-```sh
-python main.py
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-#### **Step 1.2: Create a `.env.example` file**
-This file serves as a template for the required environment variables. It's a best practice that helps new users understand what credentials they need to provide.
+### 2\. Configuration (`.env`)
 
-**Action:** Create a new file named `.env.example` in the root of your project.
+Create a `.env` file in the root directory:
 
-**File: `jira-autopilot/.env.example`**
+```ini
+# Jira Configuration
+JIRA_DOMAIN="https://your-domain.atlassian.net"
+JIRA_EMAIL="your-email@example.com"
+API_TOKEN="your-atlassian-api-token"
+BOARD_ID="123"  # Check your Jira URL: .../boards/123
+
+# AI Configuration
+GEMINI_API_KEY="your-google-gemini-key"
+
+# Email Reporting (Optional)
+SENDER_EMAIL="bot@gmail.com"
+SENDER_PASSWORD="your-app-password"
+RECIPIENT_EMAIL="manager@company.com"
+```
+
+### 3\. Knowledge Base Setup
+
+Open `Sprint_Manager/knowledge_base.py` and update line \~40 with your **Real Jira Account ID** (found in your Jira Profile URL).
+
+```python
+MY_JIRA_ID = "557058:be45a9..." # <--- CRITICAL: Paste your real ID here
+```
+
+### 4\. Jira Project Setup
+
+Ensure your Jira Board uses these **exact** column statuses (Case Sensitive):
+
+| Column | Status Name |
+| :--- | :--- |
+| Backlog | `To Do` |
+| In Dev | `In Progress` |
+| QA | `In Review` |
+| Done | `Done` |
+
+-----
+
+## ▶️ How to Run
+
+1.  **Start your Sprint** in Jira (Backlog -\> "Start Sprint").
+2.  Run the AutoPilot:
+
+<!-- end list -->
+
+```bash
+python3 main.py
+```
+
+### What happens next?
+
+1.  **Console:** You will see agents waking up, scanning tickets, and making decisions.
+2.  **Jira:** You will see tickets moving, assignees changing, and comments appearing from "Jira AutoPilot."
+3.  **Files:** A `RELEASE_NOTES.md` file will appear in your folder.
+4.  **Email:** A beautifully formatted HTML report will arrive in your inbox.
+
+-----
+
+## 🔮 Project Structure
+
+```text
+jira-autopilot/
+├── main.py                     # The Orchestrator (Entry Point)
+├── .env                        # Secrets
+├── requirements.txt            # Dependencies
+├── data/
+│   └── sprint_data.db          # The Brain (History & Profiles)
+└── Sprint_Manager/
+    ├── knowledge_base.py       # Database Interface
+    ├── message_broker.py       # Inter-Agent Communication
+    ├── Services/
+    │   ├── git_service.py      # Simulated Code Monitor
+    │   ├── jira_service.py     # Jira API Wrapper
+    │   ├── llm_service.py      # Gemini AI Interface
+    │   └── notification_service.py # HTML Email Engine
+    └── Agents/
+        ├── triage_agent.py             # The Gatekeeper
+        ├── developer_assistant_agent.py # The Wingman
+        ├── scrum_master_agent.py       # The Strategist
+        └── QA_release_agent.py         # The Closer
+```
+
+-----
+
+\<p align="center"\>
+Generated with ❤️ by \<strong\>JIRA AutoPilot\</strong\>
+\</p\>
