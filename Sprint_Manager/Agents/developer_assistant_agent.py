@@ -5,10 +5,12 @@ from ..Services.jira_service import JiraService
 from ..Services.llm_service import LLMService
 
 class DeveloperAssistantAgent(BaseAgent):
-    def __init__(self, jira_domain, jira_email, api_token):
+    # UPDATED: Accept message_broker
+    def __init__(self, jira_domain, jira_email, api_token, message_broker):
         super().__init__(jira_domain, jira_email, api_token)
         self.jira_service = JiraService(self.auth, self.headers, self.jira_domain)
         self.llm_service = LLMService()
+        self.message_broker = message_broker # <-- NEW
         self.analyzed_issues_count = 0
 
     def _get_text_from_comment_body(self, body):
@@ -26,7 +28,7 @@ class DeveloperAssistantAgent(BaseAgent):
         print("\n--- 👨‍💻 Developer Assistant Agent ---")
         print("Perceiving assigned tasks...")
         
-        report_lines = [] # <-- Start building the report
+        report_lines = []
         search_url = f"{self.jira_domain}/rest/api/3/search/jql"
         data = { "jql": 'assignee = currentUser() AND status != "Done"', "fields": ["key", "summary"] }
 
@@ -58,6 +60,13 @@ class DeveloperAssistantAgent(BaseAgent):
                 analysis = self.llm_service.analyze_comment(comment_text)
                 print(f"  -> 🤖 LLM Analysis: {analysis}")
                 report_lines.append(f"- **{issue_key}**: {summary}\n  - **LLM Analysis**: {analysis}")
+                
+                # --- NEW: Publish a message if a blocker/negative sentiment is detected ---
+                if "negative" in analysis.lower() or "blocked" in analysis.lower():
+                    message = f"BLOCKER_DETECTED: Issue {issue_key} ({summary}) has negative sentiment/blocker: {analysis}"
+                    self.message_broker.publish("DeveloperAssistantAgent", message)
+                    report_lines.append("  - 📢 **Published Blocked Message to Broker**")
+                # --------------------------------------------------------------------------
 
         except requests.exceptions.HTTPError as err:
             print(f"HTTP Error: {err}")
@@ -66,4 +75,4 @@ class DeveloperAssistantAgent(BaseAgent):
             print(f"An error occurred: {e}")
             report_lines.append(f"An unexpected error occurred: {e}")
             
-        return "\n".join(report_lines) # <-- Return the final report string
+        return "\n".join(report_lines)
