@@ -3,14 +3,15 @@ import requests
 from .base_agent import BaseAgent
 from ..Services.jira_service import JiraService
 from ..Services.llm_service import LLMService
+from ..Services.git_service import GitService
 
 class DeveloperAssistantAgent(BaseAgent):
-    # UPDATED: Accept message_broker
     def __init__(self, jira_domain, jira_email, api_token, message_broker):
         super().__init__(jira_domain, jira_email, api_token)
         self.jira_service = JiraService(self.auth, self.headers, self.jira_domain)
         self.llm_service = LLMService()
-        self.message_broker = message_broker # <-- NEW
+        self.git_service = GitService()
+        self.message_broker = message_broker
         self.analyzed_issues_count = 0
 
     def _get_text_from_comment_body(self, body):
@@ -24,24 +25,46 @@ class DeveloperAssistantAgent(BaseAgent):
         return " ".join(full_text)
 
     def execute(self):
-        """Analyzes assigned tickets and returns a string report of the findings."""
+        """Analyzes assigned tickets, checks for code activity, and returns a string report."""
         print("\n--- 👨‍💻 Developer Assistant Agent ---")
         print("Perceiving assigned tasks...")
         
         report_lines = []
         search_url = f"{self.jira_domain}/rest/api/3/search/jql"
-        data = { "jql": 'assignee = currentUser() AND status != "Done"', "fields": ["key", "summary"] }
+        # Focusing on 'In Progress' for proactive monitoring
+        data = { "jql": 'assignee = currentUser() AND status = "In Progress"', "fields": ["key", "summary"] } 
 
         try:
             response = requests.post(search_url, headers=self.headers, json=data, auth=self.auth)
             response.raise_for_status()
             issues = response.json().get('issues', [])
             self.analyzed_issues_count = len(issues)
-            print(f"Found {self.analyzed_issues_count} assigned issues.")
-            report_lines.append(f"Found {self.analyzed_issues_count} assigned issues:")
+            print(f"Found {self.analyzed_issues_count} assigned issues in 'In Progress'.")
+            report_lines.append(f"Found {self.analyzed_issues_count} assigned issues in 'In Progress':")
 
             for issue in issues:
                 issue_key, summary = issue['key'], issue['fields']['summary']
+                
+                # 1. Code-Ticket Link Monitoring (Git Service)
+                # We assume a 2-day lookback for "active" code
+                if not self.git_service.check_recent_activity(issue_key, lookback_days=2):
+                    # Autonomous Action: Add a proactive comment
+                    comment_body = (
+                        f"🤖 **JIRA AutoPilot (Code Monitor)** 🤖\n\n"
+                        f"I noticed this ticket ({issue_key}) has been in 'In Progress' for over 48 hours without recent code commits or PR activity.\n"
+                        f"Please provide a quick status update or confirm if you are blocked."
+                    )
+                    self.jira_service.add_comment(issue_key, comment_body)
+                    report_lines.append(f"- **{issue_key}**: **No recent code activity**. AutoPilot added a comment.")
+                    
+                    # Publish a high-priority flag to the Scrum Master via broker
+                    self.message_broker.publish(
+                        "DeveloperAssistantAgent", 
+                        f"NO_CODE_ACTIVITY: Issue {issue_key} ({summary}) has no recent code activity. Status: In Progress."
+                    )
+                    continue # Move to the next issue since we've already flagged this one
+
+                # 2. LLM Analysis (Sentiment & Blockers)
                 print(f"\nAnalyzing ticket: {issue_key} - {summary}")
 
                 comments = self.jira_service.get_comments_for_issue(issue_key)
@@ -61,13 +84,16 @@ class DeveloperAssistantAgent(BaseAgent):
                 print(f"  -> 🤖 LLM Analysis: {analysis}")
                 report_lines.append(f"- **{issue_key}**: {summary}\n  - **LLM Analysis**: {analysis}")
                 
-                # --- NEW: Publish a message if a blocker/negative sentiment is detected ---
-                if "negative" in analysis.lower() or "blocked" in analysis.lower():
+                # --- FIXED BLOCKER LOGIC ---
+                # Avoid false positives by checking specific values
+                is_blocked = "blocked: yes" in analysis.lower()
+                is_negative = "sentiment: negative" in analysis.lower()
+                
+                if is_blocked or is_negative:
                     message = f"BLOCKER_DETECTED: Issue {issue_key} ({summary}) has negative sentiment/blocker: {analysis}"
                     self.message_broker.publish("DeveloperAssistantAgent", message)
                     report_lines.append("  - 📢 **Published Blocked Message to Broker**")
-                # --------------------------------------------------------------------------
-
+                
         except requests.exceptions.HTTPError as err:
             print(f"HTTP Error: {err}")
             report_lines.append(f"HTTP Error encountered: {err}")

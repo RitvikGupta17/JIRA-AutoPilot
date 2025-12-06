@@ -37,30 +37,22 @@ class KnowledgeBase:
             )
         ''')
         
-        # --- Initial Data Check (For Demo Purposes) ---
+        # --- CONFIGURATION: PASTE YOUR REAL JIRA ACCOUNT ID BELOW ---
+        # Get this from your Jira Profile URL: /people/557058:be4...
+        # --- CONFIGURATION: PASTE YOUR REAL JIRA ACCOUNT ID BELOW ---
+        MY_JIRA_ID = "712020:487fb3e9-57ff-4d9c-99c3-178179399a4f" 
+        # -----------------------------------------------------------
+        # -----------------------------------------------------------
+
+        # Populates the DB with YOU as the default "FullStack" engineer
         cursor.execute('SELECT COUNT(*) FROM developer_profiles')
         if cursor.fetchone()[0] == 0:
             print("Knowledge Base: Populating initial developer profiles.")
             initial_devs = [
-                ('dev_1', 'Alice Johnson', 'Frontend', 0),
-                ('dev_2', 'Bob Smith', 'Backend', 0),
-                ('dev_3', 'Charlie Brown', 'DevOps', 0),
-                ('dev_4', 'Diana Prince', 'FullStack', 0)
+                (MY_JIRA_ID, 'Admin (Me)', 'FullStack', 0)
             ]
             cursor.executemany('INSERT INTO developer_profiles (developer_id, name, specialization, current_workload) VALUES (?, ?, ?, ?)', initial_devs)
         
-        # --- Pre-populate some history for Velocity Calculation Demo ---
-        cursor.execute('SELECT COUNT(*) FROM sprint_history')
-        if cursor.fetchone()[0] == 0:
-             # Simulating last 3 sprints with an average velocity of ~10 issues
-            print("Knowledge Base: Populating simulated sprint history.")
-            history = [
-                (101, '2023-09-01', '2023-09-14', 8, 8.0),
-                (102, '2023-09-15', '2023-09-28', 12, 10.0),
-                (103, '2023-09-29', '2023-10-12', 10, 10.0)
-            ]
-            cursor.executemany('INSERT INTO sprint_history (sprint_id, start_date, end_date, completed_points, team_velocity) VALUES (?, ?, ?, ?, ?)', history)
-
         self.conn.commit()
         print("Knowledge Base: Tables verified and ready.")
 
@@ -71,10 +63,24 @@ class KnowledgeBase:
             print("Knowledge Base connection closed.")
 
     def get_best_assignee(self, specialization):
-        """Finds the developer with the matching specialization and lowest workload."""
+        """
+        Finds the developer with the matching specialization.
+        SAFETY NET: If no exact match is found, falls back to 'FullStack' (You) 
+        so the system never crashes on assignment.
+        """
         cursor = self.conn.cursor()
+        
+        # 1. Try to find an exact specialist (e.g., Frontend)
         query = "SELECT developer_id, name, current_workload FROM developer_profiles WHERE specialization = ? ORDER BY current_workload ASC LIMIT 1"
         cursor.execute(query, (specialization,))
+        result = cursor.fetchone()
+        
+        if result:
+            return result
+            
+        # 2. Fallback: Return the 'FullStack' dev (You) if no specialist exists
+        print(f"  [KB] No specific '{specialization}' dev found. Fallback to FullStack.")
+        cursor.execute("SELECT developer_id, name, current_workload FROM developer_profiles WHERE specialization = 'FullStack' ORDER BY current_workload ASC LIMIT 1")
         return cursor.fetchone()
 
     def update_developer_workload(self, developer_id, new_workload):
@@ -87,8 +93,6 @@ class KnowledgeBase:
         except Exception:
             return False
 
-    # --- NEW: B. Data-Driven Intelligence Methods ---
-
     def get_average_velocity(self, last_n=3):
         """Calculates the average completed issues (velocity) from the last N sprints."""
         cursor = self.conn.cursor()
@@ -100,9 +104,7 @@ class KnowledgeBase:
             )
         ''', (last_n,))
         result = cursor.fetchone()
-        avg_velocity = result[0] if result and result[0] is not None else 0
-        print(f"  [KB] Calculated historical average velocity: {avg_velocity:.2f}")
-        return avg_velocity
+        return result[0] if result and result[0] is not None else 0
 
     def get_all_developer_profiles(self):
         """Fetches all developer profiles to analyze workload balance."""

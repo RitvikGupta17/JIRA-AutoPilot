@@ -1,5 +1,6 @@
 # Sprint_Manager/Services/notification_service.py
 import smtplib
+import markdown # <-- NEW IMPORT
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -11,15 +12,35 @@ class NotificationService:
         self.recipient_email = recipient_email
 
     def format_report_html(self, reports):
-        """Formats the collected agent reports into a nice HTML email."""
-        report_html = "<h1>JIRA AutoPilot - Daily Sprint Report</h1>"
-        report_html += f"<p>Report generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
-        report_html += "<hr>"
+        """Formats the collected agent reports into a nice HTML email using Markdown."""
+        
+        # CSS styling to make it look professional (Gmail-compatible)
+        css_style = """
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            h1 { color: #0052cc; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+            h2 { color: #2c3e50; margin-top: 30px; background-color: #f4f5f7; padding: 10px; border-left: 5px solid #0052cc; }
+            ul { margin-bottom: 15px; }
+            li { margin-bottom: 5px; }
+            strong { color: #d04437; } /* Highlights alerts/blockers */
+            .footer { margin-top: 40px; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px; }
+        </style>
+        """
 
+        report_html = f"<html><head>{css_style}</head><body>"
+        report_html += "<h1>✈️ JIRA AutoPilot - Daily Sprint Report</h1>"
+        report_html += f"<p><strong>Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
+        
         for agent_name, content in reports.items():
-            report_html += f"<h2>- {agent_name} Summary -</h2>"
-            # Replace newlines with <br> for HTML formatting
-            report_html += f"<p>{content.replace('\n', '<br>')}</p>"
+            # Convert the Agent's Markdown content to HTML
+            # 'fenced_code' and 'nl2br' help with code blocks and newlines
+            html_content = markdown.markdown(content, extensions=['fenced_code', 'nl2br'])
+            
+            report_html += f"<h2>{agent_name}</h2>"
+            report_html += f"<div>{html_content}</div>"
+
+        report_html += '<div class="footer">Generated autonomously by JIRA AutoPilot Agents 🤖</div>'
+        report_html += "</body></html>"
 
         return report_html
 
