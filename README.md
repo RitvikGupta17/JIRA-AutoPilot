@@ -164,6 +164,3 @@ jira-autopilot/
 
 -----
 
-\<p align="center"\>
-Generated with ❤️ by \<strong\>JIRA AutoPilot\</strong\>
-\</p\>
